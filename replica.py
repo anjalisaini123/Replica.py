@@ -35,7 +35,8 @@ class Replica:
 				receivedPrepareRequest = leader_receiver.recv_json() # prepare response received by the acceptors
 				if receivedPrepareRequest['promise'] == True:
 					numOfResponses++
-			self.accept()
+			if numOfResponses >= ((numReplicas/2) + 1):
+				self.accept()
 
 
 		else: # non leaders
