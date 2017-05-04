@@ -55,7 +55,7 @@ class Replica:
 				self.accept(recievedMessage)
 
 			if(recievedMessage['type'] == "commitRequest"):
-				if(receivedMessage['value'] == self.acceptedProposalVal && recievedMessage['proposalNum'] >= self.acceptedProposalNum):
+				if(receivedMessage['value'] == self.acceptedProposalVal and recievedMessage['proposalNum'] >= self.acceptedProposalNum):
 					numOfResponses += 1
 				if(numOfResponses >= ((numReplicas/2) + 1)): # commit after receive f+1 commit requests
 					print("replica " + str(self.ID) + " has committed to " + str(self.acceptedProposalVal)) # commit to the value
