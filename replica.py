@@ -29,16 +29,35 @@ class Replica:
 
 	def start(self):
 		sendStatus()
-		while(True):# this is the loop that receives messages. I'll finish this and implement receive and send functions later
+		while(True):
+			numOfResponses = 0
+			maxRank = 0
+			value = None
 			recievedMessage = self.socketReceiver.recv_json() 
 			if(recievedMessage['type'] == "statusRequest"):
+				#statusRequest = receivedMessage
 				self.receiveStatus(recievedMessage)
 
+			if(recievedMessage['type'] == "statusResponse"):
+				for i in range(numReplicas):
+					if(recievedMessage['rank'] > maxRank):
+						maxRank = recievedMessage['rank']
+						value = recievedMessage['agentVal']
+
+				if(recievedMessage['promise'] == self.leaderProposalNum):
+					numOfResponses += 1
+					
+				if(numOfResponses >= ((numReplicas/2) + 1)):
+					self.sendPropose(value)
+
+
 			if(recievedMessage['type'] == "proposalRequest"):
-				self.receivePropose(recievedMessage)
+				self.accept(recievedMessage)
 
 			if(recievedMessage['type'] == "commitRequest"):
-				self.receiveAccept(recievedMessage)
+				numOfResponses += 1
+				if(numOfResponses >= ((numReplicas/2) + 1)):
+					print("replica " + str(self.ID) + " has committed to " + str(self.acceptedProposalVal)) # commit to the value (I'm unsure of what else to do here to show that the replica has commited)
 
 		
 
@@ -47,70 +66,48 @@ class Replica:
 			self.socketSender[i].send_json(message)
 
 
-	def status(self):
+	def sendStatus(self):
 		if self.isLeader == 1: # leaders
 			statusRequest = {'type' : "statusRequest", 'proposalNum' : self.leaderProposalNum, 'leaderID' : self.ID}
 			print("Broadcast status request " + str(self.ID) + " : " + str(statusRequest))
 			self.broadCast(statusRequest)
 
-			
-		statusRequest = self.socketReceiver.recv_json()
-		print("statusRequestMessage message: " + str(statusRequest))
-		print("self.acceptedProposalNum = " + str(self.acceptedProposalNum))
-		print("statusRequestMessage['proposalNum'] = " + str(statusRequest['proposalNum']))
-
-		statusResponse = {'type' : "statusResponse", 'promise' : statusRequest['proposalNum'], 'value' : self.agentVal, 'rank' : self.acceptedProposalNum}
-		if(self.acceptedProposalNum < statusRequest['proposalNum']):		
-			self.socketSender[statusRequest['leaderID']].send_json(statusResponse)
-
-			
-
-		if self.isLeader == 1:
-			numOfResponses = 0
-			maxRank = 0
-			value = None
-			while numOfResponses < ((numReplicas/2) + 1):
-				print("Top of while loop receiver")
-				statusResponse = self.socketReceiver.recv_json() 
-				#print("received message from replica " + str(statusResponse['replicaID']) + " : " + str(statusResponse))
-				for i in range(numReplicas):
-					if(statusResponse['rank'] > maxRank):
-						maxRank = statusResponse['rank']
-						value = statusResponse['agentVal']
-
-				if statusResponse['promise'] == self.leaderProposalNum:
-					numOfResponses += 1
-					
-			if numOfResponses >= ((numReplicas/2) + 1):
-				self.propose(value)
-
+		
+	def receiveStatus(self, receivedMessage):
+		statusResponse = {'type' : "statusResponse", 'promise' : recievedMessage['proposalNum'], 'value' : self.agentVal, 'rank' : self.acceptedProposalNum}
+		if(self.acceptedProposalNum < recievedMessage['proposalNum']):		
+			self.socketSender[recievedMessage['leaderID']].send_json(statusResponse)
 
 	
-	# prepare request made by the leader and the acceptor's response to this prepare request
 
-	def propose(self, value):
-		if self.isLeader == 1: 
-			#prepare request asks for a promise and the proposal 
-			 #with the highest number less than the current leader's proposal num 
+
+	def sendPropose(self, value):
+			if self.isLeader == 1: 
+			""" prepare request asks for a promise and the proposal 
+			 with the highest number less than the current leader's proposal num """
 			if(value == None): # the replicas have not yet accepted anything from any other leader
 				proposalRequest = {'type' : "proposalRequest", 'value' : random.randint(1,101), 'proposalNum' : self.leaderProposalNum}
 				self.broadCast(proposalRequest)
 
 			else: 
 				proposalRequest = {'type' : "proposalRequest", 'value' : value, 'proposalNum' : self.leaderProposalNum}
-				self.broadCast(proposalRequest) 
+				self.broadCast(proposalRequest)
 
 
-	def accept(self):
-		#proposalRequest = self.socketReceiver.recv_json()
-		if(proposalRequest['proposalNum'] >= self.promise): # checks to make sure that the replica has not made a promise with another leader that has a higher proposalNum
-			self.acceptedProposalVal = proposalRequest['value']
-			self.acceptedProposalNum = proposalRequest['proposalNum']
+	def accept(self, recievedMessage): # change name from receiveProposal() to accpet() because when you receive a value, you just accept it under certain conditions
+		if(recievedMessage['proposalNum'] >= self.promise): # checks to make sure that the replica has not made a promise with another leader that has a higher proposalNum
+			self.acceptedProposalVal = receivedMessage['value']
+			self.acceptedProposalNum = recievedMessage['proposalNum']
 			commitRequest = {'type' : "commitRequest", 'proposalNum' : self.acceptedProposalNum, 'value' : self.acceptedProposalVal}
-			self.broadCast(commitRequest) 
+			self.broadCast(commitRequest)
+
+
 
 
 	
+
+		
+
 
 
 	def test(self):
