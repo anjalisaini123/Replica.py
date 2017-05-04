@@ -55,9 +55,10 @@ class Replica:
 				self.accept(recievedMessage)
 
 			if(recievedMessage['type'] == "commitRequest"):
-				numOfResponses += 1
-				if(numOfResponses >= ((numReplicas/2) + 1)):
-					print("replica " + str(self.ID) + " has committed to " + str(self.acceptedProposalVal)) # commit to the value (I'm unsure of what else to do here to show that the replica has commited)
+				if(receivedMessage['value'] == self.acceptedProposalVal && recievedMessage['proposalNum'] >= self.acceptedProposalNum):
+					numOfResponses += 1
+				if(numOfResponses >= ((numReplicas/2) + 1)): # commit after receive f+1 commit requests
+					print("replica " + str(self.ID) + " has committed to " + str(self.acceptedProposalVal)) # commit to the value
 
 		
 
@@ -78,11 +79,13 @@ class Replica:
 		if(self.acceptedProposalNum < recievedMessage['proposalNum']):		
 			self.socketSender[recievedMessage['leaderID']].send_json(statusResponse)
 
+
 	
 
 
+
 	def sendPropose(self, value):
-			if self.isLeader == 1: 
+			#if self.isLeader == 1: # I don't think I need this line
 			""" prepare request asks for a promise and the proposal 
 			 with the highest number less than the current leader's proposal num """
 			if(value == None): # the replicas have not yet accepted anything from any other leader
@@ -93,8 +96,11 @@ class Replica:
 				proposalRequest = {'type' : "proposalRequest", 'value' : value, 'proposalNum' : self.leaderProposalNum}
 				self.broadCast(proposalRequest)
 
+				
+				
+				
 
-	def accept(self, recievedMessage): # change name from receiveProposal() to accpet() because when you receive a value, you just accept it under certain conditions
+	def accept(self, recievedMessage): # change name from receiveProposal() to accept() because when you receive a value, you just accept it under certain conditions
 		if(recievedMessage['proposalNum'] >= self.promise): # checks to make sure that the replica has not made a promise with another leader that has a higher proposalNum
 			self.acceptedProposalVal = receivedMessage['value']
 			self.acceptedProposalNum = recievedMessage['proposalNum']
@@ -103,8 +109,6 @@ class Replica:
 
 
 
-
-	
 
 		
 
