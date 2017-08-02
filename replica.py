@@ -51,10 +51,18 @@ class Replica:
 		leaderID = self.getLeaderID()
 		
 		self.startTimer()
-		
 		self.sendStatus(leaderID)
 		self.receiveStatus()
-	
+		self.endTimer()
+		
+		self.startTimer()
+		self.sendProposal()
+		self.receiveProposal()
+		self.endTimer()
+		
+		self.startTimer()
+		self.sendCommit()
+		self.receiveCommit()
 		self.endTimer()
 	
 
