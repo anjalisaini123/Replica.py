@@ -13,9 +13,7 @@ class CommitMessage:
 
 
 
-
-
-def signNonByzantineMessage(self):
+	def signNonByzantineMessage(self):
 		self.summarySignature = 2
 		self.messageSignature = 2
 		
@@ -26,8 +24,9 @@ def signNonByzantineMessage(self):
 		self.messageSignature = 1
 
 	
-	def verify(self, receivedMessage):
-		if(self.summarySignature == 2 and self.messageSignature == 2):
+	def verify(self):
+		if(self.messageSignature == 2 and self.summarySignature == 2):
+			return True
+		elif(self.summarySignature == 2):
 			return True
 		return False
-
