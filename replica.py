@@ -1,6 +1,9 @@
 import zmq
 import time
-
+import sys
+import StatusMessage
+import CommitMessage
+import ProposeMessage
 
 
 
@@ -8,7 +11,7 @@ import time
 class Replica:
 
 
-	def __init__(self, isLeader, agentID, isByzantine, portNums, numReplicas, totalReplicas):
+	def __init__(self, isLeader, agentID, isByzantine, portNums, numReplicas):
 		self.isLeader = isLeader
 		self.isByzantine = isByzantine
 		self.agentID = agentID
@@ -26,48 +29,77 @@ class Replica:
 			self.sendingSocket[i].connect("tcp://127.0.0.1:" + str(portNums[i]))
 		
 		self.receivingSocket = zmq.Context().socket(zmq.PULL)
-		receivingSocket.bind("tcp://127.0.0.1:" + str(portNums[self.agentID]))
+		self.receivingSocket.bind("tcp://127.0.0.1:" + str(portNums[self.agentID]))
 		self.iterationCounter = 0
-		self.timer = 5000 # each round lasts for 5 seconds (for now)
+		self.roundTime = 5000 # each round lasts for 5 seconds (for now)
 		
 		self.numOfResponses = 0
-		self.totalReplicas = totalReplicas
+		
 		
 
 
 
 	def startTimer(self):
-		return start = time.time()
+		return time.time()
 
 	def endTimer(self):
-		return end = time.time()
+		return time.time()
 
-	def elapsedTime(self):
-		return self.endTimer() - self.startTimer()
+	def elapsedTime(self, end, start):
+		return end - start
 
 
 
 	def start(self):
 		leaderID = self.getLeaderID()
-		
-		self.startTimer()
-		self.sendStatus(leaderID)
-		self.receiveStatus()
-		self.endTimer()
-		
-		self.startTimer()
-		self.sendProposal()
-		self.receiveProposal()
-		self.endTimer()
-		
-		self.startTimer()
-		self.sendCommit()
-		self.receiveCommit()
-		self.endTimer()
-	
+		startTime = self.startTimer()
+		result1 = None
+		result2 = None
+		result3 = None
+		highestIterationStatusMessage = None
+		proposalMessage = None
+		while(True):
+			if(leaderID != None):
+				print("Replica " + str(self.agentID) + " inside leaderID if statement")
+				result1 = self.sendStatus(leaderID)
+			
+			if(result1 == True):
+				print("Replica " + str(self.agentID) + " inside result1 if statement")
+				highestIterationStatusMessage = self.receiveStatus(startTime)
+			#print("Round 1 time for replica " + str(self.agentID) + " : " + str(self.elapsedTime(self.endTimer(), startTime)))
+			
+			if(highestIterationStatusMessage != None):
+				print("Replica " + str(self.agentID) + " inside highestIterationStatusMessage if statement")
+				result2 = self.sendProposal(highestIterationStatusMessage, startTime)
+				
+			if(result2 == True):
+				print("Replica " + str(self.agentID) + " inside result2 if statement")
+				proposalMessage = self.receiveProposal(startTime)
+			#print("Round 2 time for replica " + str(self.agentID) + " : " + str(self.elapsedTime(self.endTimer(), startTime)))
+			
+
+			if(proposalMessage != None):
+				print("Replica " + str(self.agentID) + " inside proposalMessage if statement")	
+				result3 = self.sendCommit(proposalMessage)
+			
+			if(result3 == True):
+				print("Replica " + str(self.agentID) + " inside result3 if statement")
+				self.receiveCommit(startTime)
+			#print("Round 3 time for replica " + str(self.agentID) + " : " + str(self.elapsedTime(self.endTimer(), startTime)))
+			print("")
+			print("Replica " + str(self.agentID) + " has committed to the value " + str(self.committedValue))
+
+			break
 
 	
 	
+	
+
+
+	def toJSON(self):
+		return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+
+
 
 
 	def getLeaderID(self):
@@ -76,9 +108,12 @@ class Replica:
 
 
 	def sendStatus(self, leaderID):
-		statusMessage = StatusMessage(self.agentID, self.iterationCounter, self.committedValue, self.acceptedIterationNum, self.certificate)
+		messageSummary = StatusMessage.StatusMessageSummary(self.agentID, self.iterationCounter, self.committedValue, self.acceptedIterationNum)
+		self.signMessage(messageSummary)
+		statusMessage = StatusMessage.StatusMessage(messageSummary, self.certificate)
 		self.signMessage(statusMessage)
-		self.socketSender[leaderID].send_json(statusMessage)
+		self.sendingSocket[leaderID].send_pyobj(statusMessage)
+		return True
 
 	
 	def signMessage(self, message):
@@ -89,46 +124,52 @@ class Replica:
 		
 
 
-	def receiveStatus(self):
+	def receiveStatus(self, startTime):
 		tempSafeValProof = []
 		if(self.isLeader == True):
-
 			while(len(tempSafeValProof) < (self.numReplicas/2) + 1):
-				
-				if(self.receivingSocket.poll(self.timer) != 0): # messages are being received
-					receivedStatusMessage = self.receivingSocket.recv_json()
+				currTime = time.time()
+				roundNum = (currTime - startTime)/self.roundTime
+				timeConsumed = (currTime - startTime) - (roundNum * self.roundTime)
+
+				if(self.receivingSocket.poll(self.roundTime - timeConsumed) != 0): # messages are being received
+					receivedStatusMessage = self.receivingSocket.recv_pyobj()
 					
-					if(receivedStatusMessage.verify() == True and verifyCertificate(receivedStatusMessage) == True):
+					if(receivedStatusMessage.verify() == True and receivedStatusMessage.messageSummary.verify() == True and self.verifyCertificate(receivedStatusMessage) == True):
 		
 						if(receivedStatusMessage in tempSafeValProof): # find the element that matches the ID of this current receivedStatusMessage and remove it from tempSafeValProof
 							for i in range(len(tempSafeValProof)):
-								if(receivedStatusMessage.agentID == tempSafeValProof[i].agentID):
+								if(receivedStatusMessage.messageSummary.agentID == tempSafeValProof[i].agentID):
 									tempSafeValProof.pop(i)
 
 						elif(receivedStatusMessage not in tempSafeValProof):
 							tempSafeValProof.append(receivedStatusMessage)
 
 				else: # there are no messages to be received in the socket
-					highestIterationMessage = self.createSafeValProof(tempSafeValProof)
-					self.sendProposal(highestIterationMessage)
+
+					highestIterationStatusMessage = self.createSafeValProof(tempSafeValProof)
+					return highestIterationStatusMessage
 
 			if(len(tempSafeValProof) >= (self.numReplicas/2) + 1):
-				highestIterationMessage = self.createSafeValProof(tempSafeValProof)
-				self.sendProposal(highestIterationMessage)
+				highestIterationStatusMessage = self.createSafeValProof(tempSafeValProof)
+				print("HighestIterationStatusMessage in receiveStatus: " + str(highestIterationStatusMessage))
+				return highestIterationStatusMessage
 					
 			
 				
 
 
 	def createSafeValProof(self, tempSafeValProof):
-		maxIterationNum = getMaxIterationNum(tempSafeValProof)
+		maxIterationNum = self.getMaxIterationNum(tempSafeValProof)
 		for i in range(len(tempSafeValProof)):
-			if(maxIterationNum != tempSafeValProof[i].acceptedIterationNum): # only appending the message summaries of the status messages that do not have the most recent iteration
+			if(maxIterationNum != tempSafeValProof[i].messageSummary.acceptedIterationNum): # only appending the message summaries of the status messages that do not have the most recent iteration
 				self.safeValProof.append(tempSafeValProof[i].messageSummary)
+				print("Inside if statement")
 			else:
 				self.safeValProof.append(tempSafeValProof[i])
-				highestIterationMessage = tempSafeValProof[i]
-		return highestIterationMessage
+				print("Outside if statement, inside else statement")
+				highestIterationStatusMessage = tempSafeValProof[i]
+				return highestIterationStatusMessage
 	
 	
 
@@ -139,25 +180,27 @@ class Replica:
 	def getMaxIterationNum(self, arr): # returns the most recent iteration number
 		maxIterationNum = -1
 		for i in range(len(arr)):
-			if(arr[i].acceptedIterationNum >= maxIterationNum):
-				maxIterationNum = arr[i].acceptedIterationNum
+			if(arr[i].messageSummary.acceptedIterationNum >= maxIterationNum):
+				maxIterationNum = arr[i].messageSummary.acceptedIterationNum
 		return maxIterationNum
 		
 	
 
 	
-	def sendProposal(self, highestIterationMessage):
+	def sendProposal(self, highestIterationStatusMessage, startTime):
 		if(self.isLeader == True):
-			if(self.isByzantine == 2):
-				if(highestIterationMessage.value == None):
-					self.proposalValue = 5 # random value
-				else:
-					self.proposalValue = highestIterationMessage.value
+			if(highestIterationStatusMessage.value == None):
+				self.proposalValue = 5 # random value
+			else:
+				self.proposalValue = highestIterationStatusMessage.messageSummary.value
 		
-				proposeMessage = ProposeMessage(self.agentID, self.iterationCounter, self.proposalValue, self.safeValProof)
-				self.signMessage(proposeMessage)
-				self.broadCast(proposeMessage)
+			messageSummary = ProposeMessage.ProposeMessageSummary(self.agentID, self.iterationCounter, self.proposalValue, None)
+			proposeMessage = ProposeMessage.ProposeMessage(self.agentID, self.iterationCounter, self.proposalValue, self.safeValProof)
+			self.signMessage(proposeMessage)
+			self.broadCast(proposeMessage)
+			return True
 			
+			"""
 			if(self.isByzantine == 0 or self.isByzantine == 1): # Byzantine but signs with a valid signature
 				if(highestIterationMessage.value == None):
 					self.proposalValue = 5 # random value
@@ -173,30 +216,79 @@ class Replica:
 				self.signMessage(proposeMessage)
 				self.byzantineBroadcast2(proposeMessage) # sends to other half of replicas
 
+			"""
 
 
 
 
-
-	def receiveProposal(self):  
+	def receiveProposal(self, startTime):  
 		while(True):
-			if(self.receivingSocket.poll(self.timer) != 0): # messages are being received
-				receivedProposeMessage = self.receivingSocket.recv_json() 
-				if(receivedProposeMessage.verify() == True and verifySafeValProof(receivedProposeMessage) == True):
+			currTime = time.time()
+			roundNum = (currTime - startTime)/self.roundTime
+			timeConsumed = (currTime - startTime) - (roundNum * self.roundTime)
+
+			if(self.receivingSocket.poll(self.roundTime - timeConsumed) != 0): # messages are being received
+				receivedProposeMessage = self.receivingSocket.recv_pyobj() 
+				if(receivedProposeMessage.verify() == True and receivedProposeMessage.messageSummary.verify() == True and self.verifySafeValProof(receivedProposeMessage) == True):
 					self.proposalValue = receivedProposeMessage.value
-					self.sendCommit(receivedProposeMessage)
+					return receivedProposeMessage
 				else:
 					self.proposalValue = None
-					self.sendCommit(receivedProposeMessage)
+					return receivedProposeMessage
 
 			else: # messages are not being received
-				
-				self.sendCommit()
+				return None
 
 
 
 	
 	
+	
+
+
+
+
+	def sendCommit(self, receivedProposeMessage):
+		if(self.proposalValue != None):
+			commitMessage = CommitMessage.CommitMessage(self.agentID, self.iterationCounter, self.proposalValue)
+			forwardedMessage = {'proposal' : receivedProposeMessage.messageSummary, 'commitMessage' : commitMessage}
+			self.broadcast(forwardedMessage)
+			return True
+
+
+
+	
+	
+	def receiveCommit(self, startTime):
+		self.resetNumOfResponses()
+		tempCertificate = []
+		while(True):
+			currTime = time.time()
+			roundNum = (currTime - startTime)/self.roundTime
+			timeConsumed = (currTime - startTime) - (roundNum * self.roundTime)
+
+			if(self.receivingSocket.poll(self.roundTime - timeConsumed) != 0): # messages are being received
+				receivedMessage = self.receivingSocket.recv_pyobj()
+				if(receivedMessage['proposal'].verify() == True and receivedMessage['proposal'].value == self.proposalValue):
+					
+					if(receivedMessage['commitMessage'] in tempCertificate):
+						for i in range(len(tempCertificate)):
+							if(tempCertificate[i].agentID == receivedMessage['commitMessage'].agentID):
+								tempCertificate.pop(i)
+					elif(receivedMessage['commitMessage'] not in tempCertificate and receivedMessage['commitMessage'].value == self.proposalValue):
+						tempCertificate.append(receivedMessage['commitMessage'])
+
+				if(len(tempCertificate) >= (self.numReplicas/2) + 1):
+					self.committedValue = self.proposalValue # replica has commited
+					break
+			else: # messages are not being received
+				break
+
+
+
+
+
+
 	def verifySafeValProof(self, receivedMessage): # checks if the leader's proposal mathces the most recently accepted value in the safeValProof
 		maxIterationNum = self.getMaxIterationNum(receivedMessage.safeValProof)
 		for i in range(len(receivedMessage.safeValProof)):
@@ -210,9 +302,11 @@ class Replica:
 	def verifyCertificate(self, receivedMessage): # checks if the values in the certificate match the value that the replica has accepted in its status message
 		if(receivedMessage.certificate == None):
 			return True
+		
 		temp = len(self.certificate)/(self.numReplicas/2 + 1)
 		start = (temp - 1) * (self.numReplicas/2 + 1)
-		
+		if(temp == 0):
+			start = 0
 		for i in range(start, len(self.certificate)):
 			if(receivedMessage.value == receivedMessage.certificate[i].value):
 				self.numOfResponses += 1
@@ -228,60 +322,32 @@ class Replica:
 
 
 
-	def sendCommit(self, receivedProposeMessage):
-		if(self.proposalValue != None):
-			self.broadcast(receivedProposeMessage.messageSummary)
-			commitMessage = CommitMessage(self.agentID, self.iterationCounter, self.proposalValue)
-			self.broadcast(commitMessage)
-
-
-
-
-
-	def receiveCommit(self):
-		while(True):
-			if(self.receivingSocket.poll(self.timer) != 0): # messages are being received
-				receivedMessage = self.receivingSocket.recv_json()
-				if(!(isinstance(receivedMessage, CommitMessage()))):
-					receivedMessage['value'] == self.proposalValue
-
-
-
-
-
-			else: # messages are not being received
-
-
-
-
-
-
 
 	def byzantineBroadcast2(self, message): #    sends to other half of replicas
 		for i in range(self.numReplicas/2, self.numReplicas):
-			self.socketSender[i].send_json(message)
+			self.sendingSocket[i].send_pyobj(message)
 
 
 	def byzantineBroadcast1(self, message): # sends to half of replicas
 		for i in range(self.numReplicas/2):
-			self.socketSender[i].send_json(message)
+			self.sendingSocket[i].send_pyobj(message)
 	
 		
 		"""	
 		for i in range(self.numReplicas):
 			if(self.totalReplicas[i].isByzantine == 0 or self.totalReplicas[i].isByzantine == 1):
-				self.socketSender[i].send_json(message)
+				self.sendingSocket[i].send_json(message)
 		"""
 
 	def broadCast(self, message):
 		for i in range(self.numReplicas):
-			self.socketSender[i].send_json(message)
+			self.sendingSocket[i].send_pyobj(message)
 
 
 	def nonByzantineBroadcast(self, message): # sends to honest replicas only
-		for in range(self.numReplicas):
+		for i in range(self.numReplicas):
 			if(self.totalReplicas[i].isByzantine == 2):
-				self.socketSender[i].send_json(message)
+				self.sendingSocket[i].send_pyobj(message)
 
 
 
@@ -290,10 +356,11 @@ class Replica:
 
 
 
-	def resetNumOfResponses():
+	def resetNumOfResponses(self):
 		self.numOfResponses = 0
 
 	
+	"""
 
 	def sendNotify(self):
 
@@ -301,3 +368,39 @@ class Replica:
 	def receiveNotify(self):
 		while(True):
 			receivedNotifyMessage = self.receivingSocket.recv_json()
+			
+
+	"""
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+numReplicas = int(sys.argv[1])
+replica_id = int(sys.argv[2])
+replica_isLeader = int(sys.argv[3])
+
+
+
+replica = Replica(replica_isLeader == 1, replica_id, 2, [5877, 5878, 5879], numReplicas)
+replica.start()
+
+
