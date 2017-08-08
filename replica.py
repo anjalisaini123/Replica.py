@@ -56,32 +56,17 @@ class Replica:
 		
 		while(True):
 			
-			print("Replica " + str(self.agentID) + " inside leaderID if statement")
-			result1 = self.sendStatus(leaderID)
-			
-			
-			print("Replica " + str(self.agentID) + " inside result1 if statement")
+			self.sendStatus(leaderID)
 			highestIterationStatusMessage = self.receiveStatus(startTime)
-			#print("Round 1 time for replica " + str(self.agentID) + " : " + str(self.elapsedTime(self.endTimer(), startTime)))
+						
 			
-			
-			print("Replica " + str(self.agentID) + " inside highestIterationStatusMessage if statement")
-			result2 = self.sendProposal(highestIterationStatusMessage, startTime)
-				
-			print("Replica " + str(self.agentID) + " inside result2 if statement")
+			self.sendProposal(highestIterationStatusMessage, startTime)
 			proposalMessage = self.receiveProposal(startTime)
-			#print("Round 2 time for replica " + str(self.agentID) + " : " + str(self.elapsedTime(self.endTimer(), startTime)))
-			
+		
 
-			print("Replica " + str(self.agentID) + " inside proposalMessage if statement")	
-			result3 = self.sendCommit(proposalMessage)
-			
-			print("Replica " + str(self.agentID) + " inside result3 if statement")
+			self.sendCommit(proposalMessage)
 			self.receiveCommit(startTime)
-			#print("Round 3 time for replica " + str(self.agentID) + " : " + str(self.elapsedTime(self.endTimer(), startTime)))
-			print("")
-			print("Replica " + str(self.agentID) + " has committed to the value " + str(self.committedValue))
-
+			
 			break
 
 	
@@ -106,7 +91,7 @@ class Replica:
 		statusMessage = StatusMessage.StatusMessage(messageSummary, self.certificate)
 		self.signMessage(statusMessage)
 		self.sendingSocket[leaderID].send_pyobj(statusMessage)
-		return True
+		
 
 	
 	def signMessage(self, message):
@@ -191,7 +176,7 @@ class Replica:
 			proposeMessage = ProposeMessage.ProposeMessage(self.agentID, self.iterationCounter, self.proposalValue, self.safeValProof)
 			self.signMessage(proposeMessage)
 			self.broadCast(proposeMessage)
-			return True
+			
 			
 			"""
 			if(self.isByzantine == 0 or self.isByzantine == 1): # Byzantine but signs with a valid signature
@@ -246,7 +231,7 @@ class Replica:
 			commitMessage = CommitMessage.CommitMessage(self.agentID, self.iterationCounter, self.proposalValue)
 			forwardedMessage = {'proposal' : receivedProposeMessage.messageSummary, 'commitMessage' : commitMessage}
 			self.broadcast(forwardedMessage)
-			return True
+			
 
 
 
