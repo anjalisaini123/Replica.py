@@ -53,38 +53,31 @@ class Replica:
 	def start(self):
 		leaderID = self.getLeaderID()
 		startTime = self.startTimer()
-		result1 = None
-		result2 = None
-		result3 = None
-		highestIterationStatusMessage = None
-		proposalMessage = None
+		
 		while(True):
-			if(leaderID != None):
-				print("Replica " + str(self.agentID) + " inside leaderID if statement")
-				result1 = self.sendStatus(leaderID)
 			
-			if(result1 == True):
-				print("Replica " + str(self.agentID) + " inside result1 if statement")
-				highestIterationStatusMessage = self.receiveStatus(startTime)
+			print("Replica " + str(self.agentID) + " inside leaderID if statement")
+			result1 = self.sendStatus(leaderID)
+			
+			
+			print("Replica " + str(self.agentID) + " inside result1 if statement")
+			highestIterationStatusMessage = self.receiveStatus(startTime)
 			#print("Round 1 time for replica " + str(self.agentID) + " : " + str(self.elapsedTime(self.endTimer(), startTime)))
 			
-			if(highestIterationStatusMessage != None):
-				print("Replica " + str(self.agentID) + " inside highestIterationStatusMessage if statement")
-				result2 = self.sendProposal(highestIterationStatusMessage, startTime)
+			
+			print("Replica " + str(self.agentID) + " inside highestIterationStatusMessage if statement")
+			result2 = self.sendProposal(highestIterationStatusMessage, startTime)
 				
-			if(result2 == True):
-				print("Replica " + str(self.agentID) + " inside result2 if statement")
-				proposalMessage = self.receiveProposal(startTime)
+			print("Replica " + str(self.agentID) + " inside result2 if statement")
+			proposalMessage = self.receiveProposal(startTime)
 			#print("Round 2 time for replica " + str(self.agentID) + " : " + str(self.elapsedTime(self.endTimer(), startTime)))
 			
 
-			if(proposalMessage != None):
-				print("Replica " + str(self.agentID) + " inside proposalMessage if statement")	
-				result3 = self.sendCommit(proposalMessage)
+			print("Replica " + str(self.agentID) + " inside proposalMessage if statement")	
+			result3 = self.sendCommit(proposalMessage)
 			
-			if(result3 == True):
-				print("Replica " + str(self.agentID) + " inside result3 if statement")
-				self.receiveCommit(startTime)
+			print("Replica " + str(self.agentID) + " inside result3 if statement")
+			self.receiveCommit(startTime)
 			#print("Round 3 time for replica " + str(self.agentID) + " : " + str(self.elapsedTime(self.endTimer(), startTime)))
 			print("")
 			print("Replica " + str(self.agentID) + " has committed to the value " + str(self.committedValue))
