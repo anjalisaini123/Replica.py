@@ -2,24 +2,13 @@
 
 class ProposeMessage:
 
-	def __init__(self, agentID, iterationCounter, value, safeValProof):
-		self.agentID = agentID
-		self.iterationCounter = iterationCounter
-		self.value = value
-		self.safeValProof = safeValProof
-		self.summarySignature = 0
+	def __init__(self, messageSummary, safeValProof):
+		self.messageSummary = messageSummary
 		self.messageSignature = 0
-
-		self.messageSummary = {'ID' : self.agentID, 'iterationCounter' : self.iterationCounter, 'type' : "propose", 'value' : self.value}
-
+		self.safeValProof = safeValProof
 
 
-
-
-
-
-
-
+	
 
 	def signNonByzantineMessage(self):
 		self.summarySignature = 2
@@ -32,7 +21,38 @@ class ProposeMessage:
 		self.messageSignature = 1
 
 	
-	def verify(self, receivedMessage):
-		if(self.summarySignature == 2 and self.messageSignature == 2):
+	def verify(self):
+		if(self.messageSignature == 2):
 			return True
 		return False
+
+
+
+
+
+class ProposeMessageSummary:
+
+	def __init__(self, agentID, iterationCounter, value):
+		self.agentID = agentID
+		self.iterationCounter = iterationCounter
+		self.value = value
+		self.summarySignature = 0
+
+
+
+
+	def signNonByzantineMessage(self):
+		self.summarySignature = 2
+
+	
+
+	def signByzantineMessage(self):
+		self.summarySignature = 2
+
+
+
+	def verify(self):
+		if(self.summarySignature == 2):
+			return True
+		return False
+
