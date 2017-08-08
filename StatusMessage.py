@@ -3,44 +3,55 @@
 class StatusMessage:
 
 
-	def __init__(self, agentID, iterationCounter, value, acceptedIterationNum, certificate):
+	def __init__(self, messageSummary, certificate):
+		self.messageSummary = messageSummary
+		self.messageSignature = 0
+		self.certificate = certificate
+		
+
+	def signNonByzantineMessage(self):
+		self.messageSignature = 2 # valid signature
+		
+		
+	def signByzantineMessage(self):
+		self.messageSignature = 1 # invalid signature
+		
+
+	
+	
+	def verify(self):
+		if(self.messageSignature == 2):
+			return True
+		return False
+
+
+
+class StatusMessageSummary:
+
+	def __init__(self, agentID, iterationCounter, value, acceptedIterationNum):
 		self.agentID = agentID
 		self.iterationCounter = iterationCounter
 		self.acceptedIterationNum = acceptedIterationNum
 		self.value = value
 		self.summarySignature = 0 # no signature
-		self.messageSignature = 0
-		self.certificate = certificate
-		self.messageSummary = {'ID' : self.agentID, 'iterationCounter' : self.iterationCounter, 'type' : "status", 'value' : self.value, 'acceptedIterationNum' : self.acceptedIterationNum}
-
-
-
-
-
-
-
-
-
 
 
 	def signNonByzantineMessage(self):
-		self.summarySignature = 2 # valid signature
-		self.messageSignature = 2
-		
+		self.summarySignature = 2
 
 	
 	def signByzantineMessage(self):
-		self.summarySignature = 1 # invalid signature
-		self.messageSignature = 1
+		self.summarySignature = 2
 
-	
-	
+
 	def verify(self):
-		if(self.summarySignature == 2 and self.messageSignature == 2):
+		if(self.summarySignature == 2):
 			return True
 		return False
 
 
-	
+
+
+
 
 
