@@ -112,14 +112,12 @@ class Replica():
             message.signByzantineMessage()
         
 
-    def processStatus(self):
-        for i in range(self.queue.getLength()):
-            if(isinstance(self.queue.getQueueElement(i), StatusMessage.StatusMessage)):   
-                if(self.isLeader == True):  
-                    if(self.queue.getQueueElement(i).verify() == True and self.queue.getQueueElement(i).messageSummary.verify() == True and self.verifyCertificate(self.queue.getQueueElement(i)) == True):
-                        if(self.queue.getQueueElement(i) not in self.tempSafeValProof): # find the element that matches the ID of this current receivedStatusMessage and remove it from tempSafeValProof
-                            self.tempSafeValProof.append(self.queue.getQueueElement(i))
-        return False
+    def processStatus(self, receivedMessage):
+        receivedStatusMessage = receivedMessage
+        if(self.isLeader == True):  
+            if(receivedStatusMessage.verify() == True and receivedStatusMessage.messageSummary.verify() == True and self.verifyCertificate(receivedStatusMessage) == True):
+                if(receivedStatusMessage not in self.tempSafeValProof): # find the element that matches the ID of this current receivedStatusMessage and remove it from tempSafeValProof
+                    self.tempSafeValProof.append(receivedStatusMessage)
         
 
     
@@ -129,25 +127,26 @@ class Replica():
         tempSafeValProof = []
         while(True):
             timeConsumed = self.getTimeConsumed(startTime)
-            if(self.processStatus() == False):
+            if(self.queue.checkQueue(self.roundNum) == False):
 
                 if(self.receivingSocket.poll((self.roundTime - timeConsumed) * 1000) != 0): # messages are being received
                     receivedStatusMessage = self.receivingSocket.recv_pyobj()
-                    
-                    if(self.queue.checkMessage(self.agentID, self.roundNum, receivedStatusMessage) == True):
                         
+                    if(self.queue.checkMessage(self.agentID, self.roundNum, receivedStatusMessage) == True):
+                        self.processStatus(receivedStatusMessage)
+                            
                         print("Replica " + str(self.agentID) + " received Status Message from Replica " + str(receivedStatusMessage.messageSummary.agentID) + " in receiveStatus()")
-                        if(self.isLeader == True):  
-                            if(receivedStatusMessage.verify() == True and receivedStatusMessage.messageSummary.verify() == True and self.verifyCertificate(receivedStatusMessage) == True):
-                                if(receivedStatusMessage not in self.tempSafeValProof): # find the element that matches the ID of this current receivedStatusMessage and remove it from tempSafeValProof
-                                    self.tempSafeValProof.append(receivedStatusMessage)
-
+                           
 
                 else: # there are no messages to be received in the socket
-                    #assert timeConsumed > self.roundTime
                     print("Replica " + str(self.agentID) + " has passed round time in receiveStatus()")
                     self.createSafeValProof()
                     return 
+            else:
+                print("Replica " + str(agentID) + " is processing messages in the queue in receiveStatus()")
+                self.processStatus(self.queue.getQueueElement(self.queue.checkQueue(self.roundNum)))
+                self.queue.deQueue(self.queue.checkQueue(self.roundNum)) # remove the processed message from the queue
+                return 
 
 
 
@@ -221,14 +220,12 @@ class Replica():
 
 
 
-    def processPropose(self):
-        for i in range(self.queue.getLength()):
-            if(isinstance(self.queue.getQueueElement(i), ProposeMessage.ProposeMessage)):
-                receivedProposeMessage = self.queue.getQueueElement(i)
-                if(receivedProposeMessage.verify() == True and receivedProposeMessage.messageSummary.verify() == True and self.verifySafeValProof(receivedProposeMessage) == True):
-                    self.receivedProposalValue = receivedProposeMessage.messageSummary.value
-                    self.receivedProposeMessage = receivedProposeMessage
-        return False
+    def processPropose(self, receivedMessage):
+        receivedProposeMessage = receivedMessage
+        if(receivedProposeMessage.verify() == True and receivedProposeMessage.messageSummary.verify() == True and self.verifySafeValProof(receivedProposeMessage) == True):
+            self.receivedProposalValue = receivedProposeMessage.messageSummary.value
+            self.receivedProposeMessage = receivedProposeMessage
+        
 
 
     
@@ -237,42 +234,46 @@ class Replica():
         print("Replica " + str(self.agentID) + " is in receiveProposal()")
         while(True):
             timeConsumed = self.getTimeConsumed(startTime)
-            if(self.processPropose() == False):
+            if(self.queue.checkQueue(self.roundNum) == False):
+
                 if(self.receivingSocket.poll((self.roundTime - timeConsumed) * 1000) != 0): # messages are being received
                     receivedProposeMessage = self.receivingSocket.recv_pyobj()
                     
                     if(self.queue.checkMessage(self.agentID, self.roundNum, receivedProposeMessage)):
+                        self.processPropose(receivedProposeMessage)
 
                         #print("Replica " + str(self.agentID) + " received Propose Message from Replica " + str(self.receivedProposeMessage.messageSummary.agentID) + " with value " + str(self.receivedProposeMessage.messageSummary.value))
                         
-                        print("Replica " + str(self.agentID) + " received Propose Message inside checkMessage if statement")
-                        if(receivedProposeMessage.verify() == True and receivedProposeMessage.messageSummary.verify() == True and self.verifySafeValProof(receivedProposeMessage) == True):
-                            self.receivedProposalValue = receivedProposeMessage.messageSummary.value
-                            self.receivedProposeMessage = receivedProposeMessage
-                            #print("Inside if statment: " + str(self.receivedProposalValue))
-                            
+                        print("Replica " + str(self.agentID) + " is in receiveProposal() inside checkMessage if statement")
+                       
+
                 else: # messages are not being received
-                    print("Replica " + str(self.agentID) + " inside else statement")
+                    print("Replica " + str(self.agentID) + " has passed poll time in receiveProposal()")
                     return 
+            
+            else:
+                print("Replica " + str(self.agentID) + " is processing messages in the queue in receiveProposal()")
+                self.processPropose(self.queue.getQueueElement(self.queue.checkQueue(self.roundNum)))
+                self.queue.deQueue(self.queue.checkQueue(self.roundNum))
+                return 
+
 
 
 
 
     
     
-    def processCommit(self):
-        for i in range(self.queue.getLength()):
-            if(isinstance(self.queue.getQueueElement(i), dict)):
-                if(self.queue.getQueueElement(i)['proposal'].verify() == True and self.queue.getQueueElement(i)['proposal'].value == self.receivedProposalValue):
-                    if(self.queue.getQueueElement(i)['commitMessage'] not in self.tempCertificate and self.queue.getQueueElement(i)['commitMessage'].value == self.receivedProposalValue):
-                        self.tempCertificate.append(self.queue.getQueueElement(i)['commitMessage'])
+    def processCommit(self, receivedMessage):
+        if(receivedMessage['proposal'].verify() == True and receivedMessage['proposal'].value == self.receivedProposalValue):
+            if(receivedMessage['commitMessage'] not in self.tempCertificate and receivedMessage['commitMessage'].value == self.receivedProposalValue):
+                self.tempCertificate.append(receivedMessage['commitMessage'])
 
-                if(len(self.tempCertificate) >= (self.numReplicas/2) + 1):
-                    self.committedValue = self.receivedProposalValue # replica has commited
-                    self.certificate.append(self.tempCertificate)
-        return False
-
-
+        if(len(self.tempCertificate) >= (self.numReplicas/2) + 1):
+            self.committedValue = self.receivedProposalValue # replica has commited
+            self.certificate.append(self.tempCertificate)
+            self.tempCertificate = [] #reset
+            
+               
 
 
 
@@ -286,42 +287,26 @@ class Replica():
             return True
 
 
-
-    
-    
     def receiveCommit(self, startTime):
         print("Replica " + str(self.agentID) + " is in receiveCommit()")
         self.resetNumOfResponses()
         
         while(True):
-
             timeConsumed = self.getTimeConsumed(startTime)
-            if(self.processCommit() == False):
+            if(self.queue.checkQueue(self.roundNum) == False):
                 
                 if(self.receivingSocket.poll((self.roundTime - timeConsumed) * 1000) != 0): # messages are being received
                     receivedMessage = self.receivingSocket.recv_pyobj()
-
                     if(self.queue.checkMessage(self.agentID, self.roundNum, receivedMessage)): 
-                        if(receivedMessage['proposal'].verify() == True and receivedMessage['proposal'].value == self.receivedProposalValue):
-                            """     
-                            if(receivedMessage['commitMessage'] in tempCertificate):
-                                for i in range(len(tempCertificate)):
-                                    if(tempCertificate[i].agentID == receivedMessage['commitMessage'].agentID):
-                                        tempCertificate.pop(i)
-                            """
-                            if(receivedMessage['commitMessage'] not in self.tempCertificate and receivedMessage['commitMessage'].value == self.receivedProposalValue):
-                                self.tempCertificate.append(receivedMessage['commitMessage'])
-
-                        if(len(self.tempCertificate) >= (self.numReplicas/2) + 1):
-                            self.committedValue = self.receivedProposalValue # replica has commited
-                            self.certificate.append(self.tempCertificate)
-                            self.tempCertificate = [] #reset
-                            return 
+                        self.processCommit(receivedMessage)
                
-
                 else: # messages are not being received
                     self.tempCertificate = [] #reset
-                    return 
+                    return
+            else:
+                self.processCommit(self.queue.getQueueElement(self.queue.checkQueue(self.roundNum)))
+                self.queue.deQueue(self.queue.checkQueue(self.roundNum))
+                return 
 
 
 
