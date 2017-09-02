@@ -10,20 +10,6 @@ class Queue:
 
 
 	def checkMessage(self, agentID, roundNum, receivedMessage): # checks if the received message is in the current round time. If not, it is placed in the queue
-		"""
-		if(isinstance(receivedMessage, StatusMessage.StatusMessage)):
-			messageRoundNum = 0
-			
-		elif(isinstance(receivedMessage, ProposeMessage.ProposeMessage)):
-			messageRoundNum = 1
-			
-		elif(isinstance(receivedMessage, dict)):
-			messageRoundNum = 2
-		
-		else:
-			messageRoundNum = 3	
-			print("Received message" + str(receivedMessage))
-		"""
 		messageRoundNum = self.assign(receivedMessage)
 	
 		if(roundNum == messageRoundNum):
