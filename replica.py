@@ -125,28 +125,27 @@ class Replica():
     def receiveStatus(self, startTime):
         print("Replica " + str(self.agentID) + " is in receiveStatus()")
         tempSafeValProof = []
+        
+        if(self.queue.checkQueue(self.roundNum) != False):
+            print("Replica " + str(agentID) + " is processing messages in the queue in receiveStatus()")
+            self.processStatus(self.queue.getQueueElement(self.queue.checkQueue(self.roundNum)))
+            self.queue.deQueue(self.queue.checkQueue(self.roundNum)) # remove the processed message from the queue
+
         while(True):
             timeConsumed = self.getTimeConsumed(startTime)
-            if(self.queue.checkQueue(self.roundNum) == False):
-
-                if(self.receivingSocket.poll((self.roundTime - timeConsumed) * 1000) != 0): # messages are being received
-                    receivedStatusMessage = self.receivingSocket.recv_pyobj()
+            if(self.receivingSocket.poll((self.roundTime - timeConsumed) * 1000) != 0): # messages are being received
+                receivedStatusMessage = self.receivingSocket.recv_pyobj()
                         
-                    if(self.queue.checkMessage(self.agentID, self.roundNum, receivedStatusMessage) == True):
-                        self.processStatus(receivedStatusMessage)
+                if(self.queue.checkMessage(self.agentID, self.roundNum, receivedStatusMessage) == True):
+                    self.processStatus(receivedStatusMessage)
                             
-                        print("Replica " + str(self.agentID) + " received Status Message from Replica " + str(receivedStatusMessage.messageSummary.agentID) + " in receiveStatus()")
+                    print("Replica " + str(self.agentID) + " received Status Message from Replica " + str(receivedStatusMessage.messageSummary.agentID) + " in receiveStatus()")
                            
-
-                else: # there are no messages to be received in the socket
-                    print("Replica " + str(self.agentID) + " has passed round time in receiveStatus()")
-                    self.createSafeValProof()
-                    return 
-            else:
-                print("Replica " + str(agentID) + " is processing messages in the queue in receiveStatus()")
-                self.processStatus(self.queue.getQueueElement(self.queue.checkQueue(self.roundNum)))
-                self.queue.deQueue(self.queue.checkQueue(self.roundNum)) # remove the processed message from the queue
+            else: # there are no messages to be received in the socket
+                print("Replica " + str(self.agentID) + " has passed round time in receiveStatus()")
+                self.createSafeValProof()
                 return 
+            
 
 
 
@@ -232,30 +231,30 @@ class Replica():
 
     def receiveProposal(self, startTime):  
         print("Replica " + str(self.agentID) + " is in receiveProposal()")
+        if(self.queue.checkQueue(self.roundNum) != False):
+            print("Replica " + str(self.agentID) + " is processing messages in the queue in receiveProposal()")
+            self.processPropose(self.queue.getQueueElement(self.queue.checkQueue(self.roundNum)))
+            self.queue.deQueue(self.queue.checkQueue(self.roundNum))
+
         while(True):
             timeConsumed = self.getTimeConsumed(startTime)
-            if(self.queue.checkQueue(self.roundNum) == False):
-
-                if(self.receivingSocket.poll((self.roundTime - timeConsumed) * 1000) != 0): # messages are being received
-                    receivedProposeMessage = self.receivingSocket.recv_pyobj()
+            if(self.receivingSocket.poll((self.roundTime - timeConsumed) * 1000) != 0): # messages are being received
+                receivedProposeMessage = self.receivingSocket.recv_pyobj()
                     
-                    if(self.queue.checkMessage(self.agentID, self.roundNum, receivedProposeMessage)):
-                        self.processPropose(receivedProposeMessage)
+                if(self.queue.checkMessage(self.agentID, self.roundNum, receivedProposeMessage)):
+                    self.processPropose(receivedProposeMessage)
 
-                        #print("Replica " + str(self.agentID) + " received Propose Message from Replica " + str(self.receivedProposeMessage.messageSummary.agentID) + " with value " + str(self.receivedProposeMessage.messageSummary.value))
+                    #print("Replica " + str(self.agentID) + " received Propose Message from Replica " + str(self.receivedProposeMessage.messageSummary.agentID) + " with value " + str(self.receivedProposeMessage.messageSummary.value))
                         
-                        print("Replica " + str(self.agentID) + " is in receiveProposal() inside checkMessage if statement")
+                    print("Replica " + str(self.agentID) + " is in receiveProposal() inside checkMessage if statement")
                        
 
-                else: # messages are not being received
-                    print("Replica " + str(self.agentID) + " has passed poll time in receiveProposal()")
-                    return 
-            
-            else:
-                print("Replica " + str(self.agentID) + " is processing messages in the queue in receiveProposal()")
-                self.processPropose(self.queue.getQueueElement(self.queue.checkQueue(self.roundNum)))
-                self.queue.deQueue(self.queue.checkQueue(self.roundNum))
+            else: # messages are not being received
+                print("")
+                print("Replica " + str(self.agentID) + " has passed poll time in receiveProposal()")
                 return 
+            
+            
 
 
 
@@ -290,23 +289,24 @@ class Replica():
     def receiveCommit(self, startTime):
         print("Replica " + str(self.agentID) + " is in receiveCommit()")
         self.resetNumOfResponses()
-        
+
+        if(self.queue.checkQueue(self.roundNum) != False):
+            print("Replica " + str(self.agentID) + " is processing messages in the queue in receiveCommit()")
+            self.processCommit(self.queue.getQueueElement(self.queue.checkQueue(self.roundNum)))
+            self.queue.deQueue(self.queue.checkQueue(self.roundNum))
+
         while(True):
-            timeConsumed = self.getTimeConsumed(startTime)
-            if(self.queue.checkQueue(self.roundNum) == False):
-                
-                if(self.receivingSocket.poll((self.roundTime - timeConsumed) * 1000) != 0): # messages are being received
-                    receivedMessage = self.receivingSocket.recv_pyobj()
-                    if(self.queue.checkMessage(self.agentID, self.roundNum, receivedMessage)): 
-                        self.processCommit(receivedMessage)
+            timeConsumed = self.getTimeConsumed(startTime)                
+            if(self.receivingSocket.poll((self.roundTime - timeConsumed) * 1000) != 0): # messages are being received
+                receivedMessage = self.receivingSocket.recv_pyobj()
+                if(self.queue.checkMessage(self.agentID, self.roundNum, receivedMessage)): 
+                    self.processCommit(receivedMessage)
                
-                else: # messages are not being received
-                    self.tempCertificate = [] #reset
-                    return
-            else:
-                self.processCommit(self.queue.getQueueElement(self.queue.checkQueue(self.roundNum)))
-                self.queue.deQueue(self.queue.checkQueue(self.roundNum))
-                return 
+            else: # messages are not being received
+                self.tempCertificate = [] #reset
+                return
+            
+                 
 
 
 
